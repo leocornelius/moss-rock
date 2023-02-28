@@ -27,7 +27,7 @@
 #include "tf2/LinearMath/Scalar.h"
 #include "nav_msgs/msg/path.hpp"
 
-#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2/convert.h"
 #include "tf2/utils.h"
 #include "visualization_msgs/msg/image_marker.hpp"

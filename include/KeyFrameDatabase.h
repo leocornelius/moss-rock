@@ -22,6 +22,8 @@
 #ifndef KEYFRAMEDATABASE_H
 #define KEYFRAMEDATABASE_H
 
+#include <boost/serialization/version.hpp>
+#include <boost/serialization/optional.hpp>
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/list.hpp>
 #include <boost/serialization/vector.hpp>

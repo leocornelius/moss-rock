@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
 <name>moss_rock</name>
-<version>0.0.0</version>
+<version>0.1.0</version>
 <description>ROS 2 wrapper for MORB SLAM</description>
 <maintainer email="leocornelius019@gmail.com">Leah Cornelius</maintainer>
 <license>GNU General Public License v3.0</license>

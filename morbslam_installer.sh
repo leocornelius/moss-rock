@@ -34,4 +34,4 @@ cd ..
 sudo apt install -y libboost-all-dev libssl-dev
 cd moss-rock
 echo "Building ORB-SLAM2"
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+colcon build --event-handlers console_direct+ --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_VERBOSE_MAKEFILE=ON
