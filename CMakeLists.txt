@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 cmake_policy(SET CMP0048 NEW)
-project(MORB_SLAM VERSION 1.0 LANGUAGES CXX)
+project(moss_rock VERSION 1.0 LANGUAGES CXX)
 
 # IF(NOT CMAKE_BUILD_TYPE)
 #   SET(CMAKE_BUILD_TYPE Release)
@@ -10,8 +10,6 @@ MESSAGE(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall   -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -O3")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -march=native")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
 
 # Set compiler standard to C++17
 set(CMAKE_CXX_STANDARD 17)
@@ -22,11 +20,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   endif()
 endif()
 
-LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
-
-find_package(OpenCV 4.4)
+find_package(OpenCV 4.2)
    if(NOT OpenCV_FOUND)
-      message(FATAL_ERROR "OpenCV > 4.4 not found.")
+      message(FATAL_ERROR "OpenCV > 4.2 not found.")
    endif()
 
 MESSAGE(STATUS "OPENCV VERSION:")
@@ -34,7 +30,6 @@ MESSAGE(STATUS ${OpenCV_VERSION})
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
-find_package(realsense2)
 
 # include_directories(
 # ${PROJECT_SOURCE_DIR}
@@ -48,7 +43,7 @@ find_package(realsense2)
 
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
-add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME} STATIC
 src/System.cc
 src/Tracking.cc
 src/LocalMapping.cc
@@ -126,204 +121,52 @@ target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
 ${Pangolin_LIBRARIES}
-${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
+${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.a
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.a
 -lboost_serialization
 -lcrypto
 )
 
-
-# If RealSense SDK is found the library is added and its examples compiled
-if(realsense2_FOUND)
-    include_directories(${PROJECT_NAME}
-    ${realsense_INCLUDE_DIR}
-    )
-    target_link_libraries(${PROJECT_NAME}
-    ${realsense2_LIBRARY}
-    )
-endif()
-
-
-include(GNUInstallDirs)
-set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+# Install library
 install(TARGETS ${PROJECT_NAME}
-   EXPORT ${PROJECT_NAME}-targets
-   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-install(DIRECTORY
-${PROJECT_SOURCE_DIR}
-${PROJECT_SOURCE_DIR}/include
-${PROJECT_SOURCE_DIR}/include/CameraModels
-${PROJECT_SOURCE_DIR}/Thirdparty/Sophus
-${EIGEN3_INCLUDE_DIR}
-${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/DBoW2
-${Pangolin_INCLUDE_DIRS}
- DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+        ARCHIVE DESTINATION lib/${PROJECT_NAME}
+        LIBRARY DESTINATION lib/${PROJECT_NAME}
+        RUNTIME DESTINATION lib/${PROJECT_NAME})
 
-install(EXPORT ${PROJECT_NAME}-targets
-  FILE
-      	${PROJECT_NAME}Targets.cmake
-  NAMESPACE
-        ${PROJECT_NAME}::
-  DESTINATION
-        ${INSTALL_CONFIGDIR}
-)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(foxglove_msgs REQUIRED)
 
-include(CMakePackageConfigHelpers)
-write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY AnyNewerVersion
+add_executable(mono_test
+     ros/mono_ros_node.cc
 )
-
-configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-    INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
-)
-
-install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-    DESTINATION ${INSTALL_CONFIGDIR}
+# Link the library to the executable
+target_link_libraries(mono_test ${PROJECT_NAME})
+ament_target_dependencies(mono_test
+  "rclcpp"
+  "std_msgs"
+  "sensor_msgs"
+  "cv_bridge"
+  "image_transport"
+  "tf2"
+  "tf2_ros"
+  "tf2_geometry_msgs"
+  "nav_msgs"
+  "visualization_msgs"
+  "foxglove_msgs"
 )
 
-export(EXPORT ${PROJECT_NAME}-targets
-    FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake
-    NAMESPACE ${PROJECT_NAME}::)
+install(TARGETS
+mono_test
+  DESTINATION lib/${PROJECT_NAME})
 
-export(PACKAGE ${PROJECT_NAME})
-
-# Build examples
-if (CMAKE_BUILD_TYPE MATCHES Debug OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
-        # RGB-D examples
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D)
-
-        add_executable(rgbd_tum
-                Examples/RGB-D/rgbd_tum.cc)
-        target_link_libraries(rgbd_tum ${PROJECT_NAME})
-
-        if(realsense2_FOUND)
-        add_executable(rgbd_realsense_D435i
-                Examples/RGB-D/rgbd_realsense_D435i.cc)
-        target_link_libraries(rgbd_realsense_D435i ${PROJECT_NAME})
-        endif()
-
-
-        # RGB-D inertial examples
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D-Inertial)
-
-        if(realsense2_FOUND)
-        add_executable(rgbd_inertial_realsense_D435i
-                Examples/RGB-D-Inertial/rgbd_inertial_realsense_D435i.cc)
-        target_link_libraries(rgbd_inertial_realsense_D435i ${PROJECT_NAME})
-        endif()
-
-        # #Stereo examples
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo)
-
-        add_executable(stereo_kitti
-                Examples/Stereo/stereo_kitti.cc)
-        target_link_libraries(stereo_kitti ${PROJECT_NAME})
-
-        add_executable(stereo_euroc
-                Examples/Stereo/stereo_euroc.cc)
-        target_link_libraries(stereo_euroc ${PROJECT_NAME})
-
-        add_executable(stereo_tum_vi
-                Examples/Stereo/stereo_tum_vi.cc)
-        target_link_libraries(stereo_tum_vi ${PROJECT_NAME})
-
-        if(realsense2_FOUND)
-        add_executable(stereo_realsense_t265
-                Examples/Stereo/stereo_realsense_t265.cc)
-        target_link_libraries(stereo_realsense_t265 ${PROJECT_NAME})
-
-        add_executable(stereo_realsense_D435i
-                Examples/Stereo/stereo_realsense_D435i.cc)
-        target_link_libraries(stereo_realsense_D435i ${PROJECT_NAME})
-        endif()
-
-        #Monocular examples
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
-
-        add_executable(mono_tum
-                Examples/Monocular/mono_tum.cc)
-        target_link_libraries(mono_tum ${PROJECT_NAME})
-
-        add_executable(mono_kitti
-                Examples/Monocular/mono_kitti.cc)
-        target_link_libraries(mono_kitti ${PROJECT_NAME})
-
-        add_executable(mono_euroc
-                Examples/Monocular/mono_euroc.cc)
-        target_link_libraries(mono_euroc ${PROJECT_NAME})
-
-        add_executable(mono_tum_vi
-                Examples/Monocular/mono_tum_vi.cc)
-        target_link_libraries(mono_tum_vi ${PROJECT_NAME})
-
-        if(realsense2_FOUND)
-        add_executable(mono_realsense_t265
-                Examples/Monocular/mono_realsense_t265.cc)
-        target_link_libraries(mono_realsense_t265 ${PROJECT_NAME})
-
-        add_executable(mono_realsense_D435i
-                Examples/Monocular/mono_realsense_D435i.cc)
-        target_link_libraries(mono_realsense_D435i ${PROJECT_NAME})
-        endif()
-
-        #Monocular inertial examples
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular-Inertial)
-
-        add_executable(mono_inertial_euroc
-                Examples/Monocular-Inertial/mono_inertial_euroc.cc)
-        target_link_libraries(mono_inertial_euroc ${PROJECT_NAME})
-
-        add_executable(mono_inertial_tum_vi
-                Examples/Monocular-Inertial/mono_inertial_tum_vi.cc)
-        target_link_libraries(mono_inertial_tum_vi ${PROJECT_NAME})
-
-        if(realsense2_FOUND)
-        add_executable(mono_inertial_realsense_t265
-                Examples/Monocular-Inertial/mono_inertial_realsense_t265.cc)
-        target_link_libraries(mono_inertial_realsense_t265 ${PROJECT_NAME})
-
-        add_executable(mono_inertial_realsense_D435i
-                Examples/Monocular-Inertial/mono_inertial_realsense_D435i.cc)
-        target_link_libraries(mono_inertial_realsense_D435i ${PROJECT_NAME})
-        endif()
-
-        #Stereo Inertial examples
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo-Inertial)
-
-        add_executable(stereo_inertial_euroc
-                Examples/Stereo-Inertial/stereo_inertial_euroc.cc)
-        target_link_libraries(stereo_inertial_euroc ${PROJECT_NAME})
-
-        add_executable(stereo_inertial_tum_vi
-                Examples/Stereo-Inertial/stereo_inertial_tum_vi.cc)
-        target_link_libraries(stereo_inertial_tum_vi ${PROJECT_NAME})
-
-        if(realsense2_FOUND)
-        add_executable(stereo_inertial_realsense_t265
-                Examples/Stereo-Inertial/stereo_inertial_realsense_t265.cc)
-        target_link_libraries(stereo_inertial_realsense_t265 ${PROJECT_NAME})
-
-        add_executable(stereo_inertial_realsense_D435i
-                Examples/Stereo-Inertial/stereo_inertial_realsense_D435i.cc)
-        target_link_libraries(stereo_inertial_realsense_D435i ${PROJECT_NAME})
-        endif()
-
-        # Calibration examples
-        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Calibration)
-        if(realsense2_FOUND)
-        add_executable(recorder_realsense_D435i
-                Examples/Calibration/recorder_realsense_D435i.cc)
-        target_link_libraries(recorder_realsense_D435i ${PROJECT_NAME})
-
-        add_executable(recorder_realsense_T265
-                Examples/Calibration/recorder_realsense_T265.cc)
-        target_link_libraries(recorder_realsense_T265 ${PROJECT_NAME})
-        endif()
-endif()
+ament_package() 

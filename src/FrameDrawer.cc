@@ -67,7 +67,7 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale) {
       vCurrentKeys = mvCurrentKeys;
       vbVO = mvbVO;
       vbMap = mvbMap;
-    } else if (state == Tracker::LOST) {
+    } else if (state == Tracker::LOST || state == Tracker::RECENTLY_LOST) {
       vCurrentKeys = mvCurrentKeys;
     }
   }
@@ -147,7 +147,10 @@ cv::Mat FrameDrawer::DrawFrame(float imageScale) {
           mnTrackedVO++;
         }
       }
-    }
+    } 
+  } else if (mState == Tracker::LOST) {
+    cv::putText(im, "LOST", cv::Point(5, 15), cv::FONT_HERSHEY_PLAIN, 1,
+                cv::Scalar(0, 0, 255), 1, 8);
   }
 
   cv::Mat imWithInfo;

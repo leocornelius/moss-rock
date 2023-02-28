@@ -44,7 +44,7 @@
 
 namespace ORB_SLAM3 {
 
-Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
+Verbose::eLevel Verbose::th = Verbose::VERBOSITY_VERBOSE;
 
 System::System(const std::string& strVocFile, const std::string& strSettingsFile,
                const CameraType::eSensor sensor,
@@ -57,18 +57,10 @@ System::System(const std::string& strVocFile, const std::string& strSettingsFile
       mbDeactivateLocalizationMode(false) {
   // Output welcome message
   std::cout << std::endl
-       << "ORB-SLAM3 Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, "
+       << "Thanks to Carlos Campos, Richard Elvira, "
           "Juan J. Gómez, José M.M. Montiel and Juan D. Tardós, University of "
-          "Zaragoza."
-       << std::endl
-       << "ORB-SLAM2 Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel "
-          "and Juan D. Tardós, University of Zaragoza."
-       << std::endl
-       << "This program comes with ABSOLUTELY NO WARRANTY;" << std::endl
-       << "This is free software, and you are welcome to redistribute it"
-       << std::endl
-       << "under certain conditions. See LICENSE.txt." << std::endl
-       << std::endl;
+          "Zaragoza for their creation of ORB-SLAM3."
+        << std::endl;
 
   std::cout << "Input sensor was set to: ";
 
@@ -235,8 +227,7 @@ System::System(const std::string& strVocFile, const std::string& strSettingsFile
   mpLoopCloser->SetTracker(mpTracker);
   mpLoopCloser->SetLocalMapper(mpLocalMapper);
 
-  // Fix verbosity
-  Verbose::SetTh(Verbose::VERBOSITY_QUIET);
+  Verbose::SetTh(Verbose::VERBOSITY_VERBOSE);
 }
 
 Sophus::SE3f System::TrackStereo(const cv::Mat& imLeft, const cv::Mat& imRight,
@@ -450,7 +441,6 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat& im, const double& timestamp,
 
   Sophus::SE3f Tcw =
       mpTracker->GrabImageMonocular(imToFeed, timestamp, filename);
-
   unique_lock<mutex> lock2(mMutexState);
   mTrackingState = mpTracker->mState;
   mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
@@ -1328,6 +1318,11 @@ vector<MapPoint*> System::GetTrackedMapPoints() {
   return mTrackedMapPoints;
 }
 
+vector<MapPoint*> System::GetAllMapPoints() {
+  unique_lock<mutex> lock(mMutexState);
+  return mpAtlas->GetAllMapPoints();
+}
+
 vector<cv::KeyPoint> System::GetTrackedKeyPointsUn() {
   unique_lock<mutex> lock(mMutexState);
   return mTrackedKeyPointsUn;
@@ -1385,36 +1380,37 @@ void System::SaveAtlas(int type) {
   std::cout << "Thread ID is: " << std::this_thread::get_id() << std::endl;
   std::cout << "trying to save \n";
   if (!mStrSaveAtlasToFile.empty()) {
-    std::cout << "not empty\n";
+    std::cout << "Atlas saving to file: " << mStrSaveAtlasToFile << std::endl;
     // clock_t start = clock();
 
     // Save the current session
     mpAtlas->PreSave();
-    std::cout << "presaved\n";
+    std::cout << "Presaved atlas\n";
     string pathSaveFileName = "./";
     pathSaveFileName = pathSaveFileName.append(mStrSaveAtlasToFile);
-    std::cout << "string append\n";
+    std::cout << "Atlas save path combined\n";
     auto time = std::chrono::system_clock::now();
     std::time_t time_time = std::chrono::system_clock::to_time_t(time);
     std::string str_time = std::ctime(&time_time);
     pathSaveFileName =
         "stereoFiles" + str_time + ".osa";  // pathSaveFileName.append(".osa");
 
-    std::cout << "About to Calculate \n";
+    std::cout << "Calculating vocab checksum \n";
 
     string strVocabularyChecksum =
         CalculateCheckSum(mStrVocabularyFilePath, TEXT_FILE);
 
-    std::cout << "Vocab checksum`" << strVocabularyChecksum << std::endl;
+    std::cout << "Vocab checksum: " << strVocabularyChecksum << std::endl;
     std::size_t found = mStrVocabularyFilePath.find_last_of("/\\");
     string strVocabularyName = mStrVocabularyFilePath.substr(found + 1);
-    std::cout << "Type is of: " << type << std::endl;
+    std::cout << "Saving atlas using type: " << type << std::endl;
     if (type == TEXT_FILE)  // File text
     {
-      cout << "Starting to write the save text file " << endl;
+      cout << "Removing existing save file" << endl;
 
       int rval = std::remove(pathSaveFileName.c_str());  // Deletes the file
       std::cout << "remove's output is: " << rval << std::endl;
+      cout << "Writing to save file..." << endl;
 
       std::ofstream ofs(pathSaveFileName, std::ios::binary);
       boost::archive::text_oarchive oa(ofs);
@@ -1422,25 +1418,25 @@ void System::SaveAtlas(int type) {
       oa << strVocabularyName;
       oa << strVocabularyChecksum;
       oa << *mpAtlas;
-      cout << "End to write the save text file" << endl;
+      cout << "Completed save file writes!" << endl;
     } else if (type == BINARY_FILE)  // File binary
     {
-      cout << "Starting to write the save binary file" << endl;
+      cout << "Removing existing save file" << endl;
       int rval = std::remove(pathSaveFileName.c_str());  // Deletes the file
       std::cerr << errno << std::endl;
       std::cout << "remove's output is: " << rval << std::endl;
       std::ofstream ofs(pathSaveFileName, std::ios::binary);
-      std::cout << "bout to boost\n";
+      std::cout << "Performing binary archive on OFS...\n";
       boost::archive::binary_oarchive oa(ofs);
-      std::cout << "streaming\n";
+      std::cout << "Begining save file stream\n";
       oa << strVocabularyName;
       std::cout << "streamed name\n";
       oa << strVocabularyChecksum;
       std::cout << "streamed checksum\n";
       oa << *mpAtlas;
-      cout << "End to write save binary file" << endl;
+      cout << "Finished save file binary stream!" << endl;
     } else {
-      std::cout << "no file to be saved I guess\n";
+      std::cerr << "Error: Invalid save file type! Type: " << type << ". MAP WILL NOT BE SAVED!" << std::endl;
     }
   }
 }
@@ -1449,37 +1445,37 @@ bool System::LoadAtlas(int type) {
   string strFileVoc, strVocChecksum;
   bool isRead = false;
 
-  string pathLoadFileName = "/";
+  string pathLoadFileName = "./"; 
   pathLoadFileName = pathLoadFileName.append(mStrLoadAtlasFromFile);
   pathLoadFileName = pathLoadFileName.append(".osa");
 
   if (type == TEXT_FILE)  // File text
   {
-    cout << "Starting to read the save text file " << endl;
+    cout << "Reading save file..." << endl;
     std::ifstream ifs(pathLoadFileName, std::ios::binary);
     if (!ifs.good()) {
-      cout << "Load file not found" << endl;
+      std::cerr << "Could not find savefile on disk" << endl;
       return false;
     }
     boost::archive::text_iarchive ia(ifs);
     ia >> strFileVoc;
     ia >> strVocChecksum;
     ia >> *mpAtlas;
-    cout << "End to load the save text file " << endl;
+    cout << "Loaded from (text) savefile!" << endl;
     isRead = true;
   } else if (type == BINARY_FILE)  // File binary
   {
-    cout << "Starting to read the save binary file" << endl;
+    cout << "Reading (binary) save file" << endl;
     std::ifstream ifs(pathLoadFileName, std::ios::binary);
     if (!ifs.good()) {
-      cout << "Load file not found" << endl;
+      cout << "Could not find savefile on disk" << endl;
       return false;
     }
     boost::archive::binary_iarchive ia(ifs);
     ia >> strFileVoc;
     ia >> strVocChecksum;
     ia >> *mpAtlas;
-    cout << "End to load the save binary file" << endl;
+    cout << "Loaded (binary) savefile!" << endl;
     isRead = true;
   }
 
@@ -1512,7 +1508,7 @@ string System::CalculateCheckSum(string filename, int type) {
   if (type == BINARY_FILE)  // Binary file
     flags = std::ios::in | std::ios::binary;
 
-  std::cout << "inside\n";
+  std::cout << "Opened file for checksuming\n";
 
   ifstream f(filename.c_str(), flags);
   if (!f.is_open()) {
@@ -1528,12 +1524,12 @@ string System::CalculateCheckSum(string filename, int type) {
 
   MD5_Init(&md5Context);
 
-  std::cout << "just initialized MD5\n";
+  std::cout << "MD5 initialized\n";
   while (int count = f.readsome(buffer, sizeof(buffer))) {
     MD5_Update(&md5Context, buffer, count);
     // std::cout << buffer;
   }
-  std::cout << "about to close\n";
+  std::cout << "Read file content, closing...\n";
 
   f.close();
 

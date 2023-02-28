@@ -1510,10 +1510,6 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat& im,
   mCurrentFrame.mNameFile = filename;
   mCurrentFrame.mnDataset = mnNumDataset;
 
-#ifdef REGISTER_TIMES
-  vdORBExtract_ms.push_back(mCurrentFrame.mTimeORB_Ext);
-#endif
-
   lastID = mCurrentFrame.mnId;
   Track();
 
@@ -1882,7 +1878,7 @@ void Tracking::Track() {
     } else {
       // Localization Mode: Local Mapping is deactivated (TODO Not available in
       // inertial mode)
-      if (mState == Tracker::LOST) {
+      if (mState == Tracker::RECENTLY_LOST && !bOK && mCurrentFrame.mTimeStamp-mTimeStampLost>time_recently_lost) {
         if (mSensor == CameraType::IMU_MONOCULAR || mSensor == CameraType::IMU_STEREO ||
             mSensor == CameraType::IMU_RGBD)
           Verbose::PrintMess("IMU. State LOST", Verbose::VERBOSITY_NORMAL);
